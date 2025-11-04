@@ -2,13 +2,22 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const allRoutes = require('./src/routes/index.js'); // <-- Import the master router
+const connectDB = require('./src/config/db.config.js');
+const allRoutes = require('./src/routes/main.js'); // <-- Import the master router
 
 const app = express();
 app.use(express.json());
-app.use(cors());
+app.use(
+  cors({
+    origin: 'http://localhost:8080', // your React app's URL
+    credentials: true,               // if you send cookies or auth headers
+  })
+);
 
-const PORT = process.env.PORT || 5000;
+
+connectDB();
+
+const PORT = process.env.PORT;
 
 // Use the master router for all API routes
 app.use('/api', allRoutes); // All routes will be prefixed with /api
