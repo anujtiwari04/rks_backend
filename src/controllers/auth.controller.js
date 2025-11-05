@@ -8,7 +8,8 @@ exports.signup = async (req, res) => {
     return res.status(400).json({ message: 'Email, password and name required' });
 
   try {
-    const exists = await User.findOne({ email });
+    
+    const exists = await User.findOne({ email }).select('+password');
     if (exists)
       return res.status(409).json({ message: 'Email already registered' });
 
@@ -47,7 +48,7 @@ exports.login = async (req, res) => {
     return res.status(400).json({ message: 'Email and password required' });
 
   try {
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }).select('+password');
     if (!user)
       return res.status(401).json({ message: 'No email found' });
 

@@ -1,4 +1,7 @@
-import mongoose from 'mongoose';
+// import mongoose from 'mongoose';
+
+const mongoose = require('mongoose'); 
+
 
 const membershipSchema = new mongoose.Schema(
   {
@@ -74,6 +77,6 @@ const membershipSchema = new mongoose.Schema(
   }
 );
 
-const Membership = mongoose.model('Membership', membershipSchema);
 
-export default Membership;
+
+module.exports = mongoose.model('Membership', membershipSchema);
