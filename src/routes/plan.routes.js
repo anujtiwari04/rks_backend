@@ -4,8 +4,9 @@ const router = express.Router();
 const { 
   createPlan, 
   getAllPlans, 
-  getPlanByName, // Import new function
-  updatePlan     // Import new function
+  getPlanByName, 
+  updatePlan,
+  deletePlan     // Import new function
 } = require('../controllers/plan.controller.js');
 const { protect, adminProtect } = require('../middleware/auth.middleware.js'); // Import middleware
 
@@ -16,15 +17,15 @@ router.get('/getAllPlans', getAllPlans);
 // --- Admin-Only Routes ---
 
 // This will now handle POST /api/plans/createPlan
-// Use protect (is logged in) and adminProtect (is admin)
 router.post('/createPlan', protect, adminProtect, createPlan);
 
-// NEW: GET /api/plans/by-name/:planName
-// Gets a single plan's details for the edit form
+// GET /api/plans/by-name/:planName
 router.get('/by-name/:planName', protect, adminProtect, getPlanByName);
 
-// NEW: PUT /api/plans/update/:planId
-// Submits the updated plan data
+// PUT /api/plans/update/:planId
 router.put('/update/:planId', protect, adminProtect, updatePlan);
+
+// --- NEW: DELETE /api/plans/delete/:planId ---
+router.delete('/delete/:planId', protect, adminProtect, deletePlan);
 
 module.exports = router;

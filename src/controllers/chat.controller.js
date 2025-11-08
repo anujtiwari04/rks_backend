@@ -1,4 +1,4 @@
-// rks_backend/src/controllers/chat.controller.js
+// rks-backend/src/controllers/chat.controller.js
 const ChatMessage = require('../models/chatMessage.model.js');
 const MembershipPlan = require('../models/membershipPlan.model.js');
 const Membership = require('../models/membership.modal.js');
@@ -27,13 +27,11 @@ const createMessage = async (req, res) => {
       author: adminUserId,
     });
     
-    // --- POPULATE AUTHOR NAME ON CREATE ---
     // Populate the author details immediately after creation
     const populatedMessage = await ChatMessage.findById(message._id).populate(
       'author',
       'name',
     );
-    // --- END NEW LOGIC ---
 
     res.status(201).json(populatedMessage); // Send back the populated message
   } catch (error) {
@@ -42,8 +40,8 @@ const createMessage = async (req, res) => {
   }
 };
 
-// @desc    Admin deletes a message
-// @route   DELETE /api/chat/:messageId
+// @desc    Admin deletes a message (SOFT DELETE)
+// @route   DELETE /api/chat/delete/:messageId
 // @access  Admin
 const deleteMessage = async (req, res) => {
   const { messageId } = req.params;
@@ -55,22 +53,77 @@ const deleteMessage = async (req, res) => {
       return res.status(404).json({ message: 'Message not found' });
     }
 
-    // Optional: You could also check if the author matches req.user._id
+    // --- UPDATED: Soft Delete Logic ---
+    // Only allow admin to delete their own message (optional, but good practice)
     // if (message.author.toString() !== req.user._id) {
     //   return res.status(403).json({ message: 'Not authorized to delete this message' });
     // }
+    
+    message.content = "This message was deleted.";
+    message.isDeleted = true;
+    message.isEdited = false; // A deleted message is no longer "edited"
+    
+    const updatedMessage = await message.save();
+    // --- END UPDATED ---
 
-    await message.deleteOne(); // Use deleteOne() on the document
-
-    res.status(200).json({ message: 'Message deleted successfully' });
+    res.status(200).json(updatedMessage); // Return the updated message
   } catch (error) {
     console.error('Error deleting message:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
 
+// --- NEW FUNCTION: Edit a message ---
+// @desc    Admin edits a message
+// @route   PUT /api/chat/edit/:messageId
+// @access  Admin
+const editMessage = async (req, res) => {
+  const { messageId } = req.params;
+  const { content } = req.body;
+
+  if (!content) {
+    return res.status(400).json({ message: 'Content is required' });
+  }
+
+  try {
+    const message = await ChatMessage.findById(messageId);
+
+    if (!message) {
+      return res.status(404).json({ message: 'Message not found' });
+    }
+
+    // Don't allow editing a message that's already deleted
+    if (message.isDeleted) {
+        return res.status(400).json({ message: 'Cannot edit a deleted message' });
+    }
+
+    // Only allow admin to edit their own message (optional, but good practice)
+    // if (message.author.toString() !== req.user._id) {
+    //   return res.status(403).json({ message: 'Not authorized to edit this message' });
+    // }
+
+    message.content = content;
+    message.isEdited = true;
+
+    await message.save();
+    
+    // Populate author name before sending back
+    const populatedMessage = await ChatMessage.findById(message._id).populate(
+      'author',
+      'name',
+    );
+
+    res.status(200).json(populatedMessage);
+  } catch (error) {
+    console.error('Error editing message:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+// --- END NEW FUNCTION ---
+
+
 // @desc    User/Admin gets messages for a plan
-// @route   GET /api/chat/:planName
+// @route   GET /api/chat/get/:planName
 // @access  Private (Subscribed Users or Admins)
 const getMessagesForPlan = async (req, res) => {
   const { planName } = req.params;
@@ -78,18 +131,16 @@ const getMessagesForPlan = async (req, res) => {
   const userRole = req.user.role; // from 'protect' middleware
 
   try {
-    // --- UPDATED LOGIC: Allow admin access ---
     let isAuthorized = false;
 
     if (userRole === 'admin') {
       isAuthorized = true;
     } else {
-      // 1. Check if user has an active subscription to this plan
       const activeSubscription = await Membership.findOne({
         user: userId,
         planName: planName,
         status: 'active',
-        expiryDate: { $gt: new Date() }, // Ensure expiry date is in the future
+        expiryDate: { $gt: new Date() }, 
       });
       if (activeSubscription) {
         isAuthorized = true;
@@ -99,13 +150,10 @@ const getMessagesForPlan = async (req, res) => {
     if (!isAuthorized) {
       return res.status(403).json({ message: 'Not authorized to view this plan.' });
     }
-    // --- END UPDATED LOGIC ---
 
-
-    // 2. If authorized, fetch all messages for that plan
     const messages = await ChatMessage.find({ planName: planName })
-      .sort({ createdAt: 'asc' }) // Show oldest first, like a chat
-      .populate('author', 'name'); // Show admin's name
+      .sort({ createdAt: 'asc' }) 
+      .populate('author', 'name'); 
 
     res.status(200).json(messages);
   } catch (error) {
@@ -116,6 +164,7 @@ const getMessagesForPlan = async (req, res) => {
 
 module.exports = {
   createMessage,
-  deleteMessage,
+  deleteMessage, // This is now a "soft delete"
+  editMessage,   // Export new function
   getMessagesForPlan,
 };

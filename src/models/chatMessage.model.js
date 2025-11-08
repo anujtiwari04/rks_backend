@@ -21,6 +21,16 @@ const chatMessageSchema = new mongoose.Schema(
       ref: 'User',
       required: true,
     },
+    // --- NEW: Fields for Edit/Delete ---
+    isEdited: {
+      type: Boolean,
+      default: false,
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
+    // --- END NEW ---
   },
   {
     // Automatically adds createdAt and updatedAt

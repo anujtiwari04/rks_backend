@@ -3,6 +3,16 @@ const Membership = require('../models/membership.modal.js');
 
 const getMyMemberships = async (req, res) => {
   try {
+    await Membership.updateMany(
+      { 
+        user: req.user._id, 
+        status: 'active', 
+        expiryDate: { $lte: new Date() } // Find plans where expiry date is in the past
+      },
+      { 
+        $set: { status: 'expired' } // Set their status to 'expired'
+      }
+    );
     // req.user._id is attached by the 'protect' middleware
     // This finds all membership documents that match the logged-in user's ID
     const memberships = await Membership.find({ user: req.user._id })
