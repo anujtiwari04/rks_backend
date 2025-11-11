@@ -20,10 +20,23 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: true,
+    // Make password required only if the provider is 'email'
+    required: function() { return this.provider === 'email'; },
     minlength: 6,
-    // Add select: false so it doesn't return the password by default
     select: false, 
+  },
+  // --- NEW: Track auth provider ---
+  provider: {
+    type: String,
+    enum: ['email', 'google'],
+    default: 'email',
+  },
+  // --- NEW: Store Google's unique ID ---
+  googleId: {
+    type: String,
+    sparse: true, // Allows multiple null values
+    unique: true, // Ensures googleId is unique if it exists
+    default: null,
   },
   // Add the fields from your subscription form
   mobile: { type: String, default: '' },
@@ -37,18 +50,10 @@ const userSchema = new mongoose.Schema({
   timestamps: true // Use timestamps instead of manual createdAt
 });
 
-// Middleware to hash password before saving
-// userSchema.pre('save', async function (next) {
-//   if (!this.isModified('password')) {
-//     return next();
-//   }
-//   const salt = await bcrypt.genSalt(10);
-//   this.password = await bcrypt.hash(this.password, salt);
-//   next();
-// });
-
 // Method to compare password (this is what auth.controller.js needs)
 userSchema.methods.matchPassword = async function (enteredPassword) {
+  // Only compare if user has a password (is 'email' provider)
+  if (!this.password) return false;
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
