@@ -20,42 +20,47 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    // Make password required only if the provider is 'email'
     required: function() { return this.provider === 'email'; },
     minlength: 6,
     select: false, 
   },
-  // --- NEW: Track auth provider ---
   provider: {
     type: String,
     enum: ['email', 'google'],
     default: 'email',
   },
-  // --- NEW: Store Google's unique ID ---
   googleId: {
     type: String,
-    sparse: true, // Allows multiple null values
-    unique: true, // Ensures googleId is unique if it exists
+    sparse: true, 
+    unique: true, 
     default: null,
   },
-  // Add the fields from your subscription form
+  // --- NEW FIELDS FOR OTP ---
+  isVerified: {
+    type: Boolean,
+    default: false,
+  },
+  otp: {
+    type: String,
+    select: false, // Don't return OTP hash in general queries
+  },
+  otpExpiry: {
+    type: Date,
+    select: false, // Don't return expiry in general queries
+  },
+  // -------------------------
   mobile: { type: String, default: '' },
   dob: { type: String, default: '' },
   address: { type: String, default: '' },
   state: { type: String, default: '' },
   pinCode: { type: String, default: '' },
-  // panNumber: { type: String, default: '' },
-  // aadharNumber: { type: String, default: '' },
 }, {
-  timestamps: true // Use timestamps instead of manual createdAt
+  timestamps: true 
 });
 
-// Method to compare password (this is what auth.controller.js needs)
 userSchema.methods.matchPassword = async function (enteredPassword) {
-  // Only compare if user has a password (is 'email' provider)
   if (!this.password) return false;
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
-// Use module.exports
 module.exports = mongoose.model('User', userSchema);
