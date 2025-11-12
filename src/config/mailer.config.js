@@ -14,7 +14,7 @@ sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 const sendEmail = async ({ to, subject, text, html }) => {
   const msg = {
     to: to,
-    from: `"RKS Advisor" <${process.env.SENDER_EMAIL}>`, // Must be a verified sender
+    from: `"Rajesh Kumar Sodhani" <${process.env.SENDER_EMAIL}>`, // Must be a verified sender
     subject: subject,
     text: text,
     html: html,
