@@ -3,6 +3,10 @@ const razorpay = require('../config/razorpay.config.js');
 const crypto = require('crypto');
 const Membership = require('../models/membership.modal.js');
 
+// --- 1. Import new helpers ---
+const { generateInvoicePDF } = require('../utils/invoiceGenerator.js');
+const { sendEmail } = require('../config/mailer.config.js');
+
 // 1. Create Order Logic
 const createOrder = async (req, res) => {
   const { amount, currency } = req.body;
@@ -21,7 +25,7 @@ const createOrder = async (req, res) => {
   }
 };
 
-// 2. Verify Payment Logic
+// 2. Verify Payment Logic (UPDATED)
 const verifyPayment = async(req, res) => {
     const {
     razorpay_order_id,
@@ -40,13 +44,23 @@ const verifyPayment = async(req, res) => {
 
   if (digest === razorpay_signature) {
     console.log('Payment verification successful');
+    
+    // Send success response *immediately*
+    res.status(201).json({
+      status: 'success',
+      message: 'Membership activated successfully',
+      orderId: razorpay_order_id,
+    });
 
+    // --- Start background tasks (PDF & Email) ---
     try {
-      // 4. Get the user ID from the 'protect' middleware
       const userId = req.user._id; 
 
+      // --- ** MODIFICATION START ** ---
       // 5. Calculate expiry date
-      const expiryDate = new Date();
+      const startDate = new Date(); // Define startDate
+      const expiryDate = new Date(startDate); // Base expiry on startDate
+      
       if (duration === 'quarterly') {
         expiryDate.setMonth(expiryDate.getMonth() + 3);
       } else if (duration === 'halfYearly') {
@@ -63,22 +77,67 @@ const verifyPayment = async(req, res) => {
         user: userId,
         planName: planName,
         duration: duration,
+        startDate: startDate, // Save startDate
         expiryDate: expiryDate,
         razorpayPaymentId: razorpay_payment_id,
         razorpayOrderId: razorpay_order_id,
-        amountPaid: amountPaid, // Amount in *paise* (e.g., 500000 for 5000 Rs)
+        amountPaid: amountPaid, 
         status: 'active',
       });
 
-      // 7. Send a success response
-      res.status(201).json({
-        status: 'success',
-        message: 'Membership activated successfully',
-        orderId: razorpay_order_id,
+      // 2. Gather data for invoice
+      const invoiceData = {
+        user: {
+          name: req.user.name,
+          email: req.user.email,
+        },
+        order: {
+          planName: planName,
+          duration: duration,
+          amountPaid: amountPaid,
+          razorpayOrderId: razorpay_order_id,
+          razorpayPaymentId: razorpay_payment_id,
+          startDate: startDate,  // <-- ADDED
+          expiryDate: expiryDate, // <-- ADDED
+        }
+      };
+      // --- ** MODIFICATION END ** ---
+
+
+      // 3. Generate PDF Buffer
+      const pdfBuffer = await generateInvoicePDF(invoiceData);
+      
+      // 4. Convert to Base64 for SendGrid
+      const pdfBase64 = pdfBuffer.toString('base64');
+
+      // 5. Define attachments
+      const attachments = [
+        {
+          content: pdfBase64,
+          filename: `invoice-${razorpay_order_id}.pdf`,
+          type: 'application/pdf',
+          disposition: 'attachment',
+        },
+      ];
+
+      // 6. Send the email
+      await sendEmail({
+        to: req.user.email,
+        subject: `Your Invoice for ${planName} Membership`,
+        text: `Thank you for your purchase of the ${planName} (${duration}) plan. Your invoice is attached.`,
+        html: `
+          <p>Hi ${req.user.name},</p>
+          <p>Thank you for your purchase of the <strong>${planName} (${duration})</strong> plan. Your membership is now active.</p>
+          <p>Your invoice is attached for your records.</p>
+          <p>Best regards,<br>Rajesh Kumar Sodhani</p>
+        `,
+        attachments: attachments,
       });
-    } catch (dbError) {
-      console.error('Error creating membership in DB:', dbError);
-      res.status(500).json({ status: 'failure', message: 'Payment verified but failed to update membership.' });
+
+      console.log(`Invoice email sent to ${req.user.email}`);
+
+    } catch (err) {
+      console.error('Error in post-payment tasks (PDF/Email):', err);
     }
   }
    else {

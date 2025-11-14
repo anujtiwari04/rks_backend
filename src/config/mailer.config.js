@@ -11,13 +11,14 @@ sgMail.setApiKey(process.env.SENDGRID_API_KEY);
  * @param {string} text - Plain text body
  * @param {string} html - HTML body
  */
-const sendEmail = async ({ to, subject, text, html }) => {
+const sendEmail = async ({ to, subject, text, html, attachments }) => {
   const msg = {
     to: to,
     from: `"Rajesh Kumar Sodhani" <${process.env.SENDER_EMAIL}>`, // Must be a verified sender
     subject: subject,
     text: text,
     html: html,
+    attachments: attachments || [],
   };
 
   try {
