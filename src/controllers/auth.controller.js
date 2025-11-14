@@ -277,3 +277,21 @@ exports.resetPassword = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+// --- NEW: Get Logged-in User Controller ---
+exports.getMe = async (req, res) => {
+  try {
+    // req.user is already populated by the 'protect' middleware
+    // The 'protect' middleware already selected '-password'
+    if (!req.user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // We just send back the user object that the middleware found
+    res.status(200).json(req.user);
+
+  } catch (err) {
+    console.error('GetMe error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
