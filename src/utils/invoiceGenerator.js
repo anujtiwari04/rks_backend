@@ -4,7 +4,7 @@ const PDFDocument = require('pdfkit');
 /**
  * Generates an invoice PDF in memory.
  * @param {object} data - The data for the invoice.
- * @param {object} data.user - { name, email }
+ * @param {object} data.user - { name, email, address, state, pinCode, gstNumber }
  * @param {object} data.order - { planName, duration, amountPaid, razorpayOrderId, razorpayPaymentId, startDate, expiryDate }
  * @returns {Promise<Buffer>} A promise that resolves with the PDF buffer.
  */
@@ -72,34 +72,61 @@ function generateInvoicePDF(data) {
         .font('Helvetica')
         .text(formattedExpiryDate, 410, invoiceDetailsTop + 45);
 
-      // Bill To
+      // --- Bill To Section (Updated for Address & GST) ---
       doc.rect(50, 150, 500, 1).fill('#333');
       doc
         .fontSize(12)
         .font('Helvetica-Bold')
         .text('Bill To:', 50, 165);
       
+      let currentY = 180;
+
+      // 1. Name / Company Name
       doc
         .fontSize(10)
         .font('Helvetica')
-        .text(user.name, 50, 180)
-        .text(user.email, 50, 195);
+        .text(user.name, 50, currentY);
+      currentY += 15;
+
+      // 2. Address (if available)
+      if (user.address) {
+        doc.text(user.address, 50, currentY);
+        currentY += 15;
+      }
+
+      // 3. State & Pin (if available)
+      if (user.state && user.pinCode) {
+        doc.text(`${user.state} - ${user.pinCode}`, 50, currentY);
+        currentY += 15;
+      }
+
+      // 4. GST Number (if available)
+      if (user.gstNumber) {
+        doc
+          .font('Helvetica-Bold')
+          .text(`GSTIN: ${user.gstNumber}`, 50, currentY);
+        doc.font('Helvetica'); // Reset font back to normal
+        currentY += 15;
+      }
+
+      // 5. Email
+      doc.text(user.email, 50, currentY);
       
+      // --------------------------------------------------
+
       // Table Header
-      // --- ** MODIFICATION: Widen 'Duration' column ** ---
-      const tableHeaderY = 240;
+      const tableHeaderY = 280; // Pushed down slightly to accommodate address lines
       doc
         .fontSize(10)
         .font('Helvetica-Bold')
         .text('Item', 50, tableHeaderY)
-        .text('Duration', 200, tableHeaderY, { width: 150, align: 'right' }) // Widened
+        .text('Duration', 200, tableHeaderY, { width: 150, align: 'right' })
         .text('Amount (INR)', 350, tableHeaderY, { width: 200, align: 'right' });
       
       doc.rect(50, tableHeaderY + 20, 500, 1).fill('#333');
 
       // Table Row
-      // --- ** MODIFICATION: Add start/end dates under duration ** ---
-      const tableRowY = tableHeaderY + 35; // Start row at 275
+      const tableRowY = tableHeaderY + 35;
       const amountInRupees = (amountPaid / 100).toFixed(2);
       
       doc
@@ -109,21 +136,21 @@ function generateInvoicePDF(data) {
 
         // Duration block
         .font('Helvetica-Bold')
-        .text(duration, 200, tableRowY, { width: 150, align: 'right' }) // Duration
+        .text(duration, 200, tableRowY, { width: 150, align: 'right' }) 
         
-        // Add dates below duration
+        // Dates below duration
         .font('Helvetica-Oblique')
         .fontSize(8)
-        .text(`Start: ${formattedStartDate}`, 200, tableRowY + 15, { width: 150, align: 'right' }) // Start Date
-        .text(`End: ${formattedExpiryDate}`, 200, tableRowY + 25, { width: 150, align: 'right' }) // End Date
+        .text(`Start: ${formattedStartDate}`, 200, tableRowY + 15, { width: 150, align: 'right' }) 
+        .text(`End: ${formattedExpiryDate}`, 200, tableRowY + 25, { width: 150, align: 'right' }) 
         
         // Amount
         .font('Helvetica')
         .fontSize(10)
         .text(amountInRupees, 350, tableRowY, { width: 200, align: 'right' });
 
-      // --- ** MODIFICATION: Move Total section down ** ---
-      const totalY = tableRowY + 50; // New Y position for the line (was 300, now 325)
+      // Total Paid
+      const totalY = tableRowY + 50;
       doc.rect(50, totalY, 500, 1).fill('#333');
       doc
         .fontSize(12)

@@ -33,7 +33,15 @@ const verifyPayment = async(req, res) => {
     razorpay_signature,
     planName, 
     duration, 
-    amountPaid, 
+    amountPaid,
+    // --- New Fields ---
+    isBusiness,
+    companyName,
+    gstNumber,
+    email,   // Capture the email submitted in form
+    address, // Capture the address submitted in form
+    state,
+    pinCode
   } = req.body;
 
   const secret = process.env.RAZORPAY_KEY_SECRET;
@@ -56,10 +64,9 @@ const verifyPayment = async(req, res) => {
     try {
       const userId = req.user._id; 
 
-      // --- ** MODIFICATION START ** ---
       // 5. Calculate expiry date
-      const startDate = new Date(); // Define startDate
-      const expiryDate = new Date(startDate); // Base expiry on startDate
+      const startDate = new Date(); 
+      const expiryDate = new Date(startDate); 
       
       if (duration === 'quarterly') {
         expiryDate.setMonth(expiryDate.getMonth() + 3);
@@ -68,16 +75,16 @@ const verifyPayment = async(req, res) => {
       } else if (duration === 'yearly') {
         expiryDate.setMonth(expiryDate.getMonth() + 12);
       } else {
-        // Fallback for any other duration (e.g., monthly)
         expiryDate.setMonth(expiryDate.getMonth() + 1);
       }
 
       // 6. Create the Membership "link" in the database
+      // You might want to save gstNumber to your DB too, but for now logic remains same
       await Membership.create({
         user: userId,
         planName: planName,
         duration: duration,
-        startDate: startDate, // Save startDate
+        startDate: startDate, 
         expiryDate: expiryDate,
         razorpayPaymentId: razorpay_payment_id,
         razorpayOrderId: razorpay_order_id,
@@ -86,10 +93,18 @@ const verifyPayment = async(req, res) => {
       });
 
       // 2. Gather data for invoice
+      // LOGIC CHANGE: Check if Business or Personal
       const invoiceData = {
         user: {
-          name: req.user.name,
-          email: req.user.email,
+          // If business, use company name, else user name
+          name: isBusiness ? companyName : req.user.name,
+          email: email || req.user.email, // Use form email if available
+          address: address,
+          state: state,
+          pinCode: pinCode,
+          // Add Business Specifics
+          gstNumber: isBusiness ? gstNumber : null,
+          isBusiness: !!isBusiness
         },
         order: {
           planName: planName,
@@ -97,12 +112,10 @@ const verifyPayment = async(req, res) => {
           amountPaid: amountPaid,
           razorpayOrderId: razorpay_order_id,
           razorpayPaymentId: razorpay_payment_id,
-          startDate: startDate,  // <-- ADDED
-          expiryDate: expiryDate, // <-- ADDED
+          startDate: startDate,  
+          expiryDate: expiryDate, 
         }
       };
-      // --- ** MODIFICATION END ** ---
-
 
       // 3. Generate PDF Buffer
       const pdfBuffer = await generateInvoicePDF(invoiceData);
@@ -121,12 +134,16 @@ const verifyPayment = async(req, res) => {
       ];
 
       // 6. Send the email
+      // If business, email the address provided in the form, otherwise the user account email
+      const recipientEmail = email || req.user.email;
+      const recipientName = isBusiness ? companyName : req.user.name;
+
       await sendEmail({
-        to: req.user.email,
+        to: recipientEmail, 
         subject: `Your Invoice for ${planName} Membership`,
         text: `Thank you for your purchase of the ${planName} (${duration}) plan. Your invoice is attached.`,
         html: `
-          <p>Hi ${req.user.name},</p>
+          <p>Hi ${recipientName},</p>
           <p>Thank you for your purchase of the <strong>${planName} (${duration})</strong> plan. Your membership is now active.</p>
           <p>Your invoice is attached for your records.</p>
           <p>Best regards,<br>Rajesh Kumar Sodhani</p>
@@ -134,7 +151,7 @@ const verifyPayment = async(req, res) => {
         attachments: attachments,
       });
 
-      console.log(`Invoice email sent to ${req.user.email}`);
+      console.log(`Invoice email sent to ${recipientEmail}`);
 
     } catch (err) {
       console.error('Error in post-payment tasks (PDF/Email):', err);
