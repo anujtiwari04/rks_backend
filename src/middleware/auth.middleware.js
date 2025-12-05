@@ -36,10 +36,7 @@ const protect = async (req, res, next) => {
 };
 
 // --- NEW ADMIN MIDDLEWARE ---
-// This middleware checks if the user is an admin
-// It must be used *after* the 'protect' middleware
 const adminProtect = (req, res, next) => {
-  // Check the role from the user object attached by 'protect'
   if (req.user && req.user.role === 'admin') {
     next();
   } else {
@@ -47,4 +44,33 @@ const adminProtect = (req, res, next) => {
   }
 };
 
-module.exports = { protect, adminProtect };
+// --- NEW OPTIONAL AUTH MIDDLEWARE ---
+// Used for "Freemium" routes. 
+// If token exists & is valid -> sets req.user.
+// If no token or invalid -> sets req.user = null, but DOES NOT block the request.
+const optionalProtect = async (req, res, next) => {
+  let token;
+
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith('Bearer')
+  ) {
+    try {
+      token = req.headers.authorization.split(' ')[1];
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      req.user = await User.findById(decoded.id).select('-password');
+    } catch (error) {
+      // Token exists but is invalid/expired. 
+      // We explicitly treat this as "Guest" rather than erroring out, 
+      // ensuring the user can still see the Teaser content.
+      console.warn("Optional auth token failed, treating as guest:", error.message);
+      req.user = null;
+    }
+  } else {
+    req.user = null;
+  }
+  
+  next();
+};
+
+module.exports = { protect, adminProtect, optionalProtect };
