@@ -30,7 +30,7 @@ const createCall = async (req, res) => {
       stopLoss,
       price,
       rationale,
-      status: 'active'
+      // status: 'active'
     });
 
     res.status(201).json(newCall);
@@ -112,7 +112,7 @@ const getCallsForUser = async (req, res) => {
     // 1. Fetch all active, non-deleted calls
     // Sort by publishedAt descending so newest are top
     const activeCalls = await DailyCall.find({ 
-      status: { $ne: 'expired' }, // Show 'active' and 'closed' (results), but maybe not 'expired'
+      // status: { $ne: 'expired' }, // Show 'active' and 'closed' (results), but maybe not 'expired'
       isDeleted: false 
     }).sort({ publishedAt: -1 });
 
@@ -152,7 +152,7 @@ const getCallsForUser = async (req, res) => {
           id: callObj._id,
           title: callObj.title, // Teaser Title
           price: callObj.price,
-          status: callObj.status,
+          // status: callObj.status,
           publishedAt: callObj.publishedAt,
           scrip: "PREMIUM SCRIP", // Hide real name if needed, or keep it if that's the teaser
           action: callObj.action, // "BUY" or "SELL" might be okay to show, or mask it

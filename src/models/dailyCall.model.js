@@ -14,14 +14,14 @@ const dailyCallSchema = new mongoose.Schema(
       required: true,
       // The cost to unlock this specific call (e.g., 99, 199)
     },
-    status: {
-      type: String,
-      enum: ['active', 'closed', 'expired'],
-      default: 'active',
-      // 'active': Show in list, buyable
-      // 'closed': Target hit or SL hit (still visible in history)
-      // 'expired': No longer valid
-    },
+    // status: {
+    //   type: String,
+    //   enum: ['active', 'closed', 'expired'],
+    //   default: 'active',
+    //   // 'active': Show in list, buyable
+    //   // 'closed': Target hit or SL hit (still visible in history)
+    //   // 'expired': No longer valid
+    // },
 
     // --- Premium Data (Unlocked only after payment) ---
     scrip: {
